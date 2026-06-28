@@ -1,0 +1,58 @@
+name: Pipeline workflow for running test, building and pushing Docker Image
+
+on:
+  [workflow_dispatch] # manual trigger for now
+
+jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      # Dummy test — will replace with other test
+      - name: Run dummy tests
+        run: |
+          echo "Running tests..."
+          python -c "
+          def add(a, b):
+              return a + b
+
+          assert add(1, 2) == 3, 'add() failed'
+          assert add(0, 0) == 0, 'add() edge case failed'
+          print('All tests passed!')
+          "
+
+  build-and-push:
+    name: Build & Push Docker Image
+    runs-on: ubuntu-latest
+    needs: test  # only runs if tests pass
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ secrets.DOCKER_USERNAME }}/my-app:latest
+            ${{ secrets.DOCKER_USERNAME }}/my-app:${{ github.sha }}
+          cache-from: type=gcp
+          cache-to: type=inline
